@@ -1,11 +1,11 @@
 package app;
 
-import app.config.RSAKeyProperties;
+import app.config.RsaKeyProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-@EnableConfigurationProperties(RSAKeyProperties.class)
+@EnableConfigurationProperties(RsaKeyProperties.class)
 @SpringBootApplication
 public class AuthApplication {
 
