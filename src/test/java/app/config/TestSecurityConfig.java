@@ -8,11 +8,10 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.security.oauth2.resource.OAuth2ResourceServerProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.config.Customizer;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -25,29 +24,40 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.KeyFactory;
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.UUID;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 /**
  * Test security configuration that provides a minimal security setup for testing.
- * Includes a mock JWT decoder and encoder for testing purposes.
+ * Uses certificate files from test resources for JWT encoding/decoding.
  */
 @TestConfiguration
 @EnableWebSecurity
 @EnableMethodSecurity
 @ActiveProfiles("test")
-@Import(OAuth2ResourceServerProperties.class)
 public class TestSecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(TestSecurityConfig.class);
-    private static final String LOG_PREFIX = "[TestSecurityConfig] ";
+    private static final String CERT_PATH = "certs/";
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        log.info("{}Configuring SecurityFilterChain", LOG_PREFIX);
+        log.info("Configuring test SecurityFilterChain");
         
         http
             .csrf(AbstractHttpConfigurer::disable)
@@ -56,47 +66,73 @@ public class TestSecurityConfig {
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(Customizer.withDefaults())
+                .jwt(jwt -> {})
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(401, authException.getMessage());
-                })
             );
         
         return http.build();
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() throws NoSuchAlgorithmException {
-        log.info("{}Creating JwtDecoder for tests", LOG_PREFIX);
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        return NimbusJwtDecoder.withPublicKey(publicKey).build();
+    @Primary
+    public JwtDecoder jwtDecoder() throws Exception {
+        return NimbusJwtDecoder.withPublicKey(rsaPublicKey()).build();
     }
 
     @Bean
-    public JwtEncoder jwtEncoder() throws NoSuchAlgorithmException {
-        log.info("{}Creating JwtEncoder for tests", LOG_PREFIX);
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        
-        JWK jwk = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
+    @Primary
+    public JwtEncoder jwtEncoder() throws Exception {
+        JWK jwk = new RSAKey.Builder(rsaPublicKey())
+                .privateKey(rsaPrivateKey())
                 .build();
-        
         JWKSource<SecurityContext> jwkSource = new ImmutableJWKSet<>(new JWKSet(jwk));
         return new NimbusJwtEncoder(jwkSource);
     }
     
-    private KeyPair generateRsaKey() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-        keyPairGenerator.initialize(2048);
-        return keyPairGenerator.generateKeyPair();
+    @Bean
+    @Primary
+    public RSAPublicKey rsaPublicKey() throws Exception {
+        try (InputStream inputStream = new ClassPathResource(CERT_PATH + "public.pem").getInputStream()) {
+            // Read the public key from PEM file
+            String publicKeyPEM = new String(inputStream.readAllBytes())
+                .replace("-----BEGIN PUBLIC KEY-----", "")
+                .replace("-----END PUBLIC KEY-----", "")
+                .replaceAll("\\s", "");
+            
+            byte[] encoded = Base64.getDecoder().decode(publicKeyPEM);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(encoded);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            return (RSAPublicKey) keyFactory.generatePublic(keySpec);
+        } catch (IOException | java.security.spec.InvalidKeySpecException | NoSuchAlgorithmException e) {
+            log.error("Failed to load public key", e);
+            throw new RuntimeException("Failed to load public key", e);
+        }
+    }
+    
+    @Bean
+    @Primary
+    public RSAPrivateKey rsaPrivateKey() throws Exception {
+        try (InputStream inputStream = new ClassPathResource(CERT_PATH + "private.pem").getInputStream()) {
+            // Read the private key from the PEM file
+            String privateKeyPEM = new String(inputStream.readAllBytes())
+                    .replace("-----BEGIN PRIVATE KEY-----", "")
+                    .replace("-----END PRIVATE KEY-----", "")
+                    .replaceAll("\\s", "");
+            
+            byte[] decoded = Base64.getDecoder().decode(privateKeyPEM);
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(decoded);
+            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+            return (RSAPrivateKey) keyFactory.generatePrivate(keySpec);
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            log.error("Failed to load private key", e);
+            throw new RuntimeException("Failed to load private key", e);
+        }
+    }
+    
+    @Bean
+    public KeyPair keyPair() throws Exception {
+        return new KeyPair(rsaPublicKey(), rsaPrivateKey());
     }
 }
