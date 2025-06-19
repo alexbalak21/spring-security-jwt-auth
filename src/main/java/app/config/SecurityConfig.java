@@ -14,9 +14,12 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableMethodSecurity
+
 public class SecurityConfig {
 
+
     @Bean
+
     public InMemoryUserDetailsManager user(){
         return new InMemoryUserDetailsManager(
                 User.
