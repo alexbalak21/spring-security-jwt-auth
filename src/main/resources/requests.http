@@ -1,0 +1,19 @@
+#PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:password"))
+
+###GET ACCESS TOKEN (Login)
+POST http://localhost:8080/token
+#Base Authentication Header
+Authorization: Basic YWxleDpwYXNzd29yZA==
+Content-Type: application/json
+
+{}
+
+###GET Home with access token
+GET http://localhost:8080/
+Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzZWxmIiwic3ViIjoiYWxleCIsImV4cCI6MTc1MDM2MjM2OCwiaWF0IjoxNzUwMzU4NzY4LCJzY29wZSI6IlJPTEVfVVNFUiJ9.IiLOYFLQhqRVRwUw73xW8BDQmcUH_gEV9Pcl1E3NORWwfy1jh-IX1bLBaWP1RzJLpPX-pzXDTNToAwypwrjG7AbOco6SIwhYoklmH-4TE9NSYmFsxuP7tEnWUTXZMiuungwifwSp06RLYj3W0qZ-vstK8HAmkFQYkRU0UYfDiRiOjK_nwckf3Bg6BWJuSJ0IsmWRp1c872_-DwwSrKHoT75wK6UpWD3rhcw9oLKBtBCvGS86nKYhoBQN9xu0d8HagnAwlPCyf-JJUGNEnGpiAlhyt5S7LB7YMmcg2NfZ1K-MlsTLBEIsStFnueq8BOKJf81OJb6BfvNtNBXa--08jA
+Content-Type: application/json
+
+{}
+
+
+
