@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: jwt-auth-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080
+
+logging:
+  level:
+    root: INFO
+    app: DEBUG
+    org.springframework.security: DEBUG
+
+# RSA Key Configuration (should be set via environment variables in production)
+rsa:
+  private-key: ${JWT_PRIVATE_KEY}
+  public-key: ${JWT_PUBLIC_KEY}

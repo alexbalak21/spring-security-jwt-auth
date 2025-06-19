@@ -1,19 +1,35 @@
-#PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:password"))
-
-###GET ACCESS TOKEN (Login)
-POST http://localhost:8080/token
-#Base Authentication Header
-Authorization: Basic YWxleDpwYXNzd29yZA==
+### Login with JSON credentials
+POST http://localhost:8080/api/auth/login
 Content-Type: application/json
 
-{}
+{
+  "username": "alex",
+  "password": "password"
+}
 
-###GET Home with access token
+### Access protected resource with JWT token
+# First login to get the token, then use it in the Authorization header
+# Example: Authorization: Bearer your.jwt.token.here
 GET http://localhost:8080/
-Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzZWxmIiwic3ViIjoiYWxleCIsImV4cCI6MTc1MDM2MjM2OCwiaWF0IjoxNzUwMzU4NzY4LCJzY29wZSI6IlJPTEVfVVNFUiJ9.IiLOYFLQhqRVRwUw73xW8BDQmcUH_gEV9Pcl1E3NORWwfy1jh-IX1bLBaWP1RzJLpPX-pzXDTNToAwypwrjG7AbOco6SIwhYoklmH-4TE9NSYmFsxuP7tEnWUTXZMiuungwifwSp06RLYj3W0qZ-vstK8HAmkFQYkRU0UYfDiRiOjK_nwckf3Bg6BWJuSJ0IsmWRp1c872_-DwwSrKHoT75wK6UpWD3rhcw9oLKBtBCvGS86nKYhoBQN9xu0d8HagnAwlPCyf-JJUGNEnGpiAlhyt5S7LB7YMmcg2NfZ1K-MlsTLBEIsStFnueq8BOKJf81OJb6BfvNtNBXa--08jA
+Authorization: Bearer {{auth_token}}
 Content-Type: application/json
 
-{}
+### Example of invalid login (wrong password)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
 
+{
+  "username": "alex",
+  "password": "wrongpassword"
+}
 
+### Example of invalid login (missing fields)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
 
+{
+  "username": "alex"
+}
+
+### Get public key (for JWT verification)
+GET http://localhost:8080/actuator/env/rsa.public-key

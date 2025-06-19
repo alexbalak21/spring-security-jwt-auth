@@ -1,0 +1,68 @@
+# Test-specific configuration
+spring:
+  application:
+    name: jwt-auth-service-test
+  config:
+    activate:
+      on-profile: test
+
+# Disable security for tests by default
+# Individual tests can override this with @WithMockUser or @WithUserDetails
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:${server.port}
+
+# Test JWT Keys (in-memory for testing)
+rsa:
+  private-key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDLUqW8Q1jYJzqY
+    ... (test private key) ...
+    -----END PRIVATE KEY-----
+  public-key: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAy1KlvENY2Cc6mN...
+    ... (test public key) ...
+    -----END PUBLIC KEY-----
+
+# Test server configuration
+server:
+  port: 0  # Use random available port
+  servlet:
+    context-path: /
+
+# Logging configuration for tests
+logging:
+  level:
+    root: INFO
+    app: DEBUG
+    org.springframework: WARN
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type: WARN
+
+# Test database configuration (H2 in-memory)
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
