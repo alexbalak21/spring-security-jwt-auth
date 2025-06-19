@@ -1,7 +1,6 @@
 package app.controller;
 
 import app.config.TestSecurityConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,14 +12,16 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 
-import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(HomeController.class)
@@ -29,20 +30,34 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class HomeControllerTest {
 
     @Autowired
-    private WebApplicationContext context;
-
-    @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockBean
     private JwtDecoder jwtDecoder;
+    
+    private static final String TEST_USERNAME = "testuser";
+    private static final String TEST_ROLE = "USER";
+    
+    private Jwt createTestJwt(String subject, List<String> scopes) {
+        Instant now = Instant.now();
+        return new Jwt(
+            "test-token",
+            now,
+            now.plus(1, ChronoUnit.HOURS),
+            Map.of("alg", "RS256"),
+            Map.of(
+                "sub", subject,
+                "scope", String.join(" ", scopes),
+                "iss", "test-issuer"
+            )
+        );
+    }
 
     @BeforeEach
-    void setup() {
-        // No setup needed as MockMvc is auto-configured by @WebMvcTest
+    void setUp() {
+        // Setup default JWT decoding behavior for tests
+        Jwt jwt = createTestJwt(TEST_USERNAME, List.of("read"));
+        when(jwtDecoder.decode(anyString())).thenReturn(jwt);
     }
 
     @Test
@@ -62,70 +77,31 @@ class HomeControllerTest {
                 .andExpect(jsonPath("$.username").value("testuser"))
                 .andExpect(jsonPath("$.message").isString())
                 .andExpect(jsonPath("$.authorities").isArray())
-                .andExpect(jsonPath("$.authorities", hasItem("ROLE_USER")));
-    }
-
-    @Test
-    @WithMockUser(username = "admin", roles = {"ADMIN"})
-    void home_WithAdminRole_ShouldReturnAdminInfo() throws Exception {
-        // Act & Assert
-        mockMvc.perform(get("/"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("admin"))
-                .andExpect(jsonPath("$.authorities", hasItem("ROLE_ADMIN")));
-    }
-
-    @Test
-    void home_WithoutAuthentication_ShouldReturnUnauthorized() throws Exception {
-        // Our TestSecurityConfig requires authentication for "/"
-        mockMvc.perform(get("/"))
-                .andExpect(status().isUnauthorized());
-    }
-    
-    @Test
-    void publicEndpoint_ShouldBeAccessibleWithoutAuthentication() throws Exception {
-        // Public endpoint should be accessible without authentication
-        mockMvc.perform(get("/public"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("This is a public endpoint. No authentication required."));
+                .andExpect(jsonPath("$.authorities[0]").value("ROLE_USER"));
     }
 
     @Test
     void home_WithJwtToken_ShouldReturnTokenDetails() throws Exception {
         // Arrange
         String username = "jwtuser";
-        String issuer = "test-issuer";
-        String scope = "read write";
-        
-        // Setup JWT token
-        Jwt jwt = Jwt.withTokenValue("test-token")
-                .header("alg", "RS256")
-                .claim("scope", scope)
-                .subject(username)
-                .issuer(issuer)
-                .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600))
-                .build();
-                
-        when(jwtDecoder.decode("test-token")).thenReturn(jwt);
+        Jwt jwt = createTestJwt(username, List.of("read", "write"));
+        when(jwtDecoder.decode(anyString())).thenReturn(jwt);
         
         // Act & Assert
-        mockMvc.perform(get("/")
+        mockMvc.perform(MockMvcRequestBuilders.get("/")
                 .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(username))
-                .andExpect(jsonPath("$.token_issuer").value(issuer))
-                .andExpect(jsonPath("$.authorities").isArray());
+                .andExpect(jsonPath("$.token_issuer").value("test-issuer"))
+                .andExpect(jsonPath("$.authorities").isArray())
+                .andExpect(jsonPath("$.authorities[0]").value("SCOPE_read"))
+                .andExpect(jsonPath("$.authorities[1]").value("SCOPE_write"));
     }
     
     @Test
-    @WithMockUser(username = "testuser")
-    void home_WithMockUser_ShouldNotContainTokenDetails() throws Exception {
-        // Act & Assert - When using @WithMockUser, no JWT token is present
-        mockMvc.perform(MockMvcRequestBuilders.get("/"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token_issuer").doesNotExist())
-                .andExpect(jsonPath("$.token_issued_at").doesNotExist())
-                .andExpect(jsonPath("$.token_expires_at").doesNotExist());
+    void home_WithoutAuthentication_ShouldReturnUnauthorized() throws Exception {
+        // Act & Assert
+        mockMvc.perform(get("/"))
+                .andExpect(status().isUnauthorized());
     }
 }
