@@ -1,5 +1,7 @@
 #PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:password"))
 
+
+##WORKING REQUESTS ON MAIN
 ###GET ACCESS TOKEN (Login)
 POST http://localhost:8080/token
 #Base Authentication Header
