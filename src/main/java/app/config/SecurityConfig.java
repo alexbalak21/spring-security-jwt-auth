@@ -31,16 +31,27 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
+                // 🔒 Disable CSRF protection since this is likely a stateless REST API
                 .csrf(AbstractHttpConfigurer::disable)
+
+                // ✅ Require authentication for *all* incoming HTTP requests
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().authenticated()
                 )
+
+                // 🔐 Configure the app as an OAuth2 Resource Server using JWT for token validation
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(Customizer.withDefaults()))
+                        .jwt(Customizer.withDefaults())
+                )
+
+                // 📦 Make session handling stateless — no server-side sessions will be created
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // 🔑 Enable HTTP Basic authentication — handy for testing with tools like curl or Postman
                 .httpBasic(Customizer.withDefaults())
 
+                // 🧱 Finalize the security configuration
                 .build();
     }
 }
