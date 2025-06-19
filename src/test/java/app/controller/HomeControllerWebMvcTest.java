@@ -17,7 +17,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
-import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -104,7 +105,7 @@ class HomeControllerWebMvcTest {
                         .contentType("application/json"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("Unauthorized"))
-                .andExpect(jsonPath("$.message").isString());
+                .andExpect(jsonPath("$.message").value("Invalid JWT token"));
     }
 
     @Test
@@ -120,8 +121,9 @@ class HomeControllerWebMvcTest {
     @Test
     void homeEndpoint_WithExpiredJwt_ShouldReturnUnauthorized() throws Exception {
         // Given
+        String expiredMessage = "JWT expired at " + Instant.now().minusSeconds(3600);
         when(jwtDecoder.decode(anyString()))
-                .thenThrow(new JwtException("JWT expired at " + Instant.now().minusSeconds(3600)));
+                .thenThrow(new JwtException(expiredMessage));
 
         // When/Then
         mockMvc.perform(get("/")
@@ -129,7 +131,7 @@ class HomeControllerWebMvcTest {
                         .contentType("application/json"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("Unauthorized"))
-                .andExpect(jsonPath("$.message").isString());
+                .andExpect(jsonPath("$.message").value(expiredMessage));
     }
 
     @Test

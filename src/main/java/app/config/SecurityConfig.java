@@ -33,11 +33,17 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.http.MediaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
@@ -130,34 +136,47 @@ public class SecurityConfig {
     /**
      * Handles JWT validation errors and formats appropriate error responses
      */
-    private void handleJwtError(HttpServletRequest request, HttpServletResponse response, Exception exception) throws IOException {
-        log.warn("JWT validation error: {}", exception.getMessage());
-        
-        String error = "Unauthorized";
-        String message = "Authentication failed";
-        int status = HttpStatus.UNAUTHORIZED.value();
-        
-        // Get the root cause
-        Throwable cause = exception.getCause();
-        if (cause == null) {
-            cause = exception;
+    /**
+     * Custom filter to handle JWT exceptions
+     */
+    private static class ExceptionHandlingFilter extends OncePerRequestFilter {
+        private final AuthenticationEntryPoint authenticationEntryPoint;
+
+        public ExceptionHandlingFilter(AuthenticationEntryPoint authenticationEntryPoint) {
+            this.authenticationEntryPoint = authenticationEntryPoint;
         }
-        
-        if (cause instanceof JwtException) {
-            if (cause.getMessage().contains("expired")) {
-                message = "JWT expired at " + Instant.now().minusSeconds(3600);
-            } else {
-                message = "Invalid JWT token";
+
+        @Override
+        protected void doFilterInternal(jakarta.servlet.http.HttpServletRequest request,
+                                      jakarta.servlet.http.HttpServletResponse response,
+                                      jakarta.servlet.FilterChain filterChain) throws jakarta.servlet.ServletException, java.io.IOException {
+            try {
+                filterChain.doFilter(request, response);
+            } catch (AuthenticationException ex) {
+                authenticationEntryPoint.commence(
+                    (jakarta.servlet.http.HttpServletRequest) request,
+                    (jakarta.servlet.http.HttpServletResponse) response,
+                    ex
+                );
             }
         }
-        
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setStatus(status);
-        response.getWriter().write(String.format(
-            "{\"error\":\"%s\",\"message\":\"%s\"}", 
-            error, 
-            message.replace("\"", "\\\"")
-        ));
+    }
+
+    /**
+     * Custom BearerTokenResolver to handle token extraction
+     */
+    private static class CustomBearerTokenResolver implements BearerTokenResolver {
+        private final BearerTokenResolver defaultResolver = new DefaultBearerTokenResolver();
+
+        @Override
+        public String resolve(jakarta.servlet.http.HttpServletRequest request) {
+            try {
+                return defaultResolver.resolve(request);
+            } catch (Exception ex) {
+                // Let the authentication entry point handle the exception
+                throw new JwtException("Invalid token: " + ex.getMessage());
+            }
+        }
     }
 
     @Bean
@@ -187,18 +206,26 @@ public class SecurityConfig {
             AuthenticationEntryPoint authenticationEntryPoint = (request, response, authException) -> {
                 log.warn("Authentication error: {}", authException.getMessage());
                 
-                // Handle JWT-specific errors
-                if (authException.getCause() != null && 
-                    (authException.getCause() instanceof JwtException ||
-                     (authException.getCause().getCause() != null && 
-                      authException.getCause().getCause() instanceof JwtException))) {
-                    handleJwtError(request, response, authException);
-                } else {
-                    // Match test expectations for unauthorized access
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                    response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Full authentication is required to access this resource\"}");
+                // Create response JSON with the actual error message
+                String error = "Unauthorized";
+                String message = authException.getMessage() != null ? 
+                    authException.getMessage() : "Authentication failed";
+                
+                // If there's a cause, include its message as well
+                if (authException.getCause() != null && authException.getCause().getMessage() != null) {
+                    message = authException.getCause().getMessage();
                 }
+                
+                String jsonResponse = String.format(
+                    "{\"error\":\"%s\",\"message\":\"%s\"}",
+                    error,
+                    message.replace("\"", "\\\\\"")
+                );
+                
+                // Set response
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                response.getWriter().write(jsonResponse);
             };
 
             AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
@@ -227,17 +254,13 @@ public class SecurityConfig {
 
                 // Configure JWT
                 .oauth2ResourceServer(oauth2 -> oauth2
-                    .jwt(jwt -> {
-                        try {
-                            jwt.decoder(jwtDecoder())
-                               .jwtAuthenticationConverter(jwtAuthenticationConverter);
-                        } catch (Exception e) {
-                            log.error("Failed to configure JWT: {}", e.getMessage(), e);
-                            throw e;
-                        }
-                    })
+                    .bearerTokenResolver(new CustomBearerTokenResolver())
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler)
+                    .jwt(jwt -> jwt
+                        .decoder(jwtDecoder())
+                        .jwtAuthenticationConverter(jwtAuthenticationConverter)
+                    )
                 )
 
                 // Configure session management
@@ -254,6 +277,9 @@ public class SecurityConfig {
                     .authenticationEntryPoint(authenticationEntryPoint)
                     .accessDeniedHandler(accessDeniedHandler)
                 );
+
+            // Add custom filter to handle JWT exceptions
+            http.addFilterBefore(new ExceptionHandlingFilter(authenticationEntryPoint), BearerTokenAuthenticationFilter.class);
 
             // Log the final security configuration
             log.info("{}Security filter chain configuration complete", LOG_PREFIX);
