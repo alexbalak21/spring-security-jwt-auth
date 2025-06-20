@@ -1,28 +1,16 @@
 package app.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.security.interfaces.RSAPublicKey;
-
+/**
+ * Test web configuration for web-related beans and settings.
+ */
 @TestConfiguration
+@EnableWebMvc
 @ActiveProfiles("test")
-public class TestWebConfig {
-    
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        // Return a mock JwtDecoder that always throws an exception
-        return token -> {
-            throw new RuntimeException("JwtDecoder not implemented in test");
-        };
-    }
-    
-    @Bean
-    public RSAPublicKey rsaPublicKey() {
-        // Return null since we're mocking JwtDecoder
-        return null;
-    }
+public class TestWebConfig implements WebMvcConfigurer {
+    // Web-related configurations can be added here
 }

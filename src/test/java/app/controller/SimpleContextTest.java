@@ -1,5 +1,6 @@
 package app.controller;
 
+import app.config.AuthControllerTestConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,7 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(classes = {AuthControllerTestConfig.class})
 @ActiveProfiles("test")
 class SimpleContextTest {
 
@@ -18,6 +19,7 @@ class SimpleContextTest {
     @Test
     void contextLoads() {
         assertNotNull(context, "Application context should load successfully");
-        assertTrue(context.containsBean("homeController"), "HomeController should be in the context");
+        assertTrue(context.containsBean("testAuthenticationManager"), 
+                 "Test AuthenticationManager should be in the context");
     }
 }

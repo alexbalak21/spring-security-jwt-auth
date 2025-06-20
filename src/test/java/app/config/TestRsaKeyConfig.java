@@ -1,5 +1,6 @@
 package app.config;
 
+import com.nimbusds.jose.jwk.RSAKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -7,12 +8,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
-import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.UUID;
 
 /**
  * Test configuration for RSA key properties.
@@ -26,7 +27,7 @@ public class TestRsaKeyConfig {
     private static final String LOG_PREFIX = "[TestRsaKeyConfig] ";
 
     @Bean
-    public RsaKeyProperties rsaKeyProperties() throws NoSuchAlgorithmException {
+    public RsaKeyProperties rsaKeyProperties() {
         log.info("{}Creating RsaKeyProperties bean", LOG_PREFIX);
         try {
             // Generate a new RSA key pair for testing
@@ -37,7 +38,6 @@ public class TestRsaKeyConfig {
             
             log.debug("{}RSA Key Details - Algorithm: {}, Format: {}", 
                     LOG_PREFIX, publicKey.getAlgorithm(), publicKey.getFormat());
-            log.trace("{}Public Key: {}", LOG_PREFIX, publicKey);
             
             // Create and return RsaKeyProperties with the generated keys
             RsaKeyProperties rsaKeyProperties = new RsaKeyProperties(publicKey, privateKey);
@@ -46,11 +46,11 @@ public class TestRsaKeyConfig {
             
         } catch (Exception e) {
             log.error("{}Failed to create RsaKeyProperties", LOG_PREFIX, e);
-            throw e;
+            throw new RuntimeException("Failed to create RsaKeyProperties", e);
         }
     }
     
-    private KeyPair generateRsaKey() throws NoSuchAlgorithmException {
+    private KeyPair generateRsaKey() {
         log.debug("{}Generating new RSA key pair with 2048-bit key size", LOG_PREFIX);
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
@@ -60,7 +60,7 @@ public class TestRsaKeyConfig {
             return keyPair;
         } catch (NoSuchAlgorithmException e) {
             log.error("{}RSA algorithm not available in this environment", LOG_PREFIX, e);
-            throw e;
+            throw new RuntimeException("Failed to generate RSA key pair", e);
         }
     }
 }
