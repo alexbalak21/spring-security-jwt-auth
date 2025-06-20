@@ -29,9 +29,9 @@ src/main/java/app/
 ## Authentication Flow
 
 1. **Client Authentication**:
-   - Client sends credentials via Basic Authentication to `/token` endpoint
-   - Server validates credentials against in-memory user details
-   - On successful authentication, a JWT token is generated and returned
+   - Client sends JSON credentials to `/login` endpoint
+   - Server validates credentials using `AuthenticationManager`
+   - On successful authentication, a JWT token is generated and returned in the response body
 
 2. **Accessing Protected Resources**:
    - Client includes JWT token in the `Authorization: Bearer <token>` header
@@ -42,10 +42,12 @@ src/main/java/app/
 
 ### SecurityConfig.java
 - Enables method-level security with `@EnableMethodSecurity`
-- Configures HTTP security to require authentication for all endpoints except `/token`
+- Configures HTTP security to require authentication for all endpoints except `/login`
 - Sets up JWT-based authentication using OAuth2 Resource Server
 - Configures stateless session management
 - Disables CSRF protection (as we're using JWT)
+- Configures `AuthenticationManager` for JSON authentication
+- Sets up password encoding with BCrypt
 
 ### CORS Configuration
 - Allows cross-origin requests from any origin (configured in `CorsConfiguration.java`)
@@ -69,17 +71,22 @@ src/main/java/app/
 ### Authentication
 
 #### Get JWT Token
-- **Endpoint**: `POST /token`
-- **Authentication**: Basic Auth
+- **Endpoint**: `POST /login`
 - **Request Headers**:
   ```
-  Authorization: Basic <base64-credentials>
   Content-Type: application/json
+  ```
+- **Request Body**:
+  ```json
+  {
+    "username": "alex",
+    "password": "password"
+  }
   ```
 - **Response**:
   ```json
   {
-    "token": "eyJhbGciOiJSUzI1NiJ9..."
+    "AuthToken": "eyJhbGciOiJSUzI1NiJ9..."
   }
   ```
 

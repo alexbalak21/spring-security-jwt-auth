@@ -43,9 +43,10 @@ This document provides a quick reference for all the classes in the Spring Secur
 - **Location**: `app.controller`
 - **Purpose**: Handles authentication-related endpoints.
 - **Endpoints**:
-    - `POST /token`: Generates a JWT token for authenticated users
+    - `POST /login`: Accepts JSON with username/password and returns a JWT token
 - **Dependencies**:
     - `TokenService` for JWT generation
+    - `AuthenticationManager` for user authentication
 
 ### `HomeController.java`
 - **Location**: `app.controller`
@@ -70,9 +71,9 @@ This document provides a quick reference for all the classes in the Spring Secur
 ## Security Flow
 
 1. **Authentication**:
-    - Client sends credentials to `/token` endpoint
-    - `AuthController` receives the request and delegates to `TokenService`
-    - `TokenService` generates a JWT token
+    - Client sends JSON credentials to `/login` endpoint
+    - `AuthController` validates credentials using `AuthenticationManager`
+    - On successful authentication, `TokenService` generates a JWT token
 
 2. **Authorization**:
     - Client includes JWT in `Authorization: Bearer <token>` header
@@ -88,6 +89,7 @@ This document provides a quick reference for all the classes in the Spring Secur
 - **Spring Boot Starter Security**: Core security framework
 - **Spring Security OAuth2 Resource Server**: JWT support
 - **Nimbus JOSE + JWT**: JWT implementation
-- **Lombok**: Reduces boilerplate code
+- **BCrypt**: Secure password hashing
+- **Spring Web**: REST API support
 
 This structure provides a solid foundation for a secure REST API with JWT authentication that can be extended with additional features as needed.

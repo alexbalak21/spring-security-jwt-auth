@@ -57,17 +57,25 @@ For demonstration purposes, the application comes with a default user:
 
 ### Obtaining a JWT Token
 
-To authenticate and obtain a JWT token, make a POST request to the `/token` endpoint with Basic Authentication:
+To authenticate and obtain a JWT token, make a POST request to the `/login` endpoint with a JSON body containing username and password:
 
 ```http
-POST /token
-Authorization: Basic YWxleDpwYXNzd29yZA==
+POST /login
 Content-Type: application/json
 
-{}
+{
+    "username": "alex",
+    "password": "password"
+}
 ```
 
-Where `YWxleDpwYXNzd29yZA==` is the Base64 encoded string of `username:password` (alex:password).
+On successful authentication, you'll receive a JSON response containing the JWT token:
+
+```json
+{
+    "AuthToken": "your.jwt.token.here"
+}
+```
 
 ### Using the JWT Token
 
