@@ -1,23 +1,16 @@
 package app.dto;
 
-public class LoginRequest {
-    private String username;
-    private String password;
+import jakarta.validation.constraints.NotBlank;
 
-    // Getters and setters
+public record LoginRequest(
+    @NotBlank(message = "Username is required") String username,
+    @NotBlank(message = "Password is required") String password
+) {
     public String getUsername() {
         return username;
     }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
+    
     public String getPassword() {
         return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 }

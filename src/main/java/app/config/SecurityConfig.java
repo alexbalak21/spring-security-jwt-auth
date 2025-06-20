@@ -60,7 +60,8 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login").permitAll()
+                        .requestMatchers("/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/login").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
@@ -71,6 +72,17 @@ public class SecurityConfig {
                 )
                 .build();
     }
+
+// Remove or comment out the in-memory user details bean
+// @Bean
+// public InMemoryUserDetailsManager userDetailsService(PasswordEncoder passwordEncoder) {
+//     return new InMemoryUserDetailsManager(
+//             User.withUsername("alex")
+//                     .password(passwordEncoder.encode("password"))
+//                     .roles("USER")
+//                     .build()
+//     );
+// }
 
     @Bean
     JwtDecoder jwtDecoder() {
