@@ -1,7 +1,6 @@
 package app.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,8 +14,7 @@ import java.util.List;
 @Entity
 @Table(name = "users",
         uniqueConstraints = {
-                @UniqueConstraint(columnNames = "username"),
-                @UniqueConstraint(columnNames = "email")
+                @UniqueConstraint(columnNames = "username")
         })
 public class User implements UserDetails {
 
@@ -32,11 +30,6 @@ public class User implements UserDetails {
     @NotBlank
     @Size(max = 120)
     private String password;
-
-    @NotBlank
-    @Size(max = 50)
-    @Email
-    private String email;
 
     @Enumerated(EnumType.STRING)
     private Role role;
@@ -63,9 +56,8 @@ public class User implements UserDetails {
     // Constructors
     public User() {}
 
-    public User(String username, String email, String password, Role role) {
+    public User(String username, String password, Role role) {
         this.username = username;
-        this.email = email;
         this.password = password;
         this.role = role;
     }
@@ -95,14 +87,6 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
     }
 
     public Role getRole() {
@@ -138,7 +122,6 @@ public class User implements UserDetails {
         return "User{" +
                 "id=" + id +
                 ", username='" + username + '\'' +
-                ", email='" + email + '\'' +
                 ", role=" + role +
                 ", enabled=" + enabled +
                 ", createdAt=" + createdAt +
