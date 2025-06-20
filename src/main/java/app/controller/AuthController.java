@@ -18,10 +18,10 @@ public class AuthController {
         this.tokenService = tokenService;
     }
 
-    @PostMapping("/token")
+    @PostMapping("/login")
     public String token(Authentication authentication) {
         LOG.info("Generating token for user {}", authentication.getName());
-        return this.tokenService.generateToken(authentication);
+        return "{\"token\":\"" + this.tokenService.generateToken(authentication) + "\"}";
     }
 
 }
