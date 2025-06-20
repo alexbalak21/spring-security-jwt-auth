@@ -1,25 +1,6 @@
-#PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:password"))
+#PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:"))
 
-### Login and get JWT token
-POST http://localhost:8080/login
-Content-Type: application/json
-
-{
-  "username": "alex",
-  "password": "password"
-}
-
-> {%
-    const token = JSON.parse(response.body).AuthToken;
-    client.global.set("authToken", token);
-%}
-
-### Access protected endpoint with saved JWT token
-GET http://localhost:8080/
-Authorization: Bearer {{authToken}}
-Content-Type: application/json
-
-###POST REGISTER
+### Register a new user
 POST http://localhost:8080/api/auth/register
 Content-Type: application/json
 
@@ -29,7 +10,8 @@ Content-Type: application/json
   "confirmPassword": "password123"
 }
 
-###POST LOGIN
+### Login and get JWT token
+# @name login
 POST http://localhost:8080/api/auth/login
 Content-Type: application/json
 
@@ -38,3 +20,12 @@ Content-Type: application/json
   "password": "password123"
 }
 
+> {%
+    client.global.set("auth_token", response.body.AuthToken);
+    console.log("Token set:", response.body.AuthToken);
+%}
+
+### Access protected endpoint with saved JWT token
+GET http://localhost:8080/
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
