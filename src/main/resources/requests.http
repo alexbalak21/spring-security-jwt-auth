@@ -1,0 +1,20 @@
+#PowerShell command : [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("alex:password"))
+
+### Login and get JWT token
+POST http://localhost:8080/token
+Authorization: Basic YWxleDpwYXNzd29yZA==
+Content-Type: application/json
+
+{}
+
+> {%
+    // Save the token from the JSON response into a global variable
+    const token = response.body;
+    client.global.set("authToken", token);
+%}
+
+
+### Access protected endpoint with saved JWT token
+GET http://localhost:8080/
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
