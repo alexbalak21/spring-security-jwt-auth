@@ -1,51 +1,45 @@
 package app.controller;
 
+import app.dto.LoginRequest;
 import app.service.TokenService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
-/**
- * Controller responsible for handling authentication-related requests.
- * This includes user login and JWT token generation.
- */
-@RestController // Marks this class as a REST controller that returns response bodies
+@RestController
 public class AuthController {
-
-    // Logger for this class to log important information
     private static final Logger LOG = LoggerFactory.getLogger(AuthController.class);
-    
-    // Service responsible for JWT token generation
     private final TokenService tokenService;
+    private final AuthenticationManager authenticationManager;
 
-    /**
-     * Constructor for dependency injection
-     * @param tokenService Service for JWT token operations
-     */
-    public AuthController(TokenService tokenService) {
+    public AuthController(TokenService tokenService, AuthenticationManager authenticationManager) {
         this.tokenService = tokenService;
+        this.authenticationManager = authenticationManager;
     }
 
-    /**
-     * Handles user login and returns a JWT token upon successful authentication.
-     * 
-     * @param authentication Spring's authentication object containing user details
-     * @return ResponseEntity containing the JWT token if authentication is successful
-     */
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> token(Authentication authentication) {
-        // Log the login attempt
-        LOG.info("Generating token for user {}", authentication.getName());
-        
-        // Generate a JWT token for the authenticated user
-        String token = this.tokenService.generateToken(authentication);
-        
-        // Return the token in the response body with a 200 OK status
-        return ResponseEntity.ok(Map.of("token", token));
+    public ResponseEntity<Map<String, String>> login(@RequestBody LoginRequest loginRequest) {
+        LOG.info("Login attempt for user: {}", loginRequest.getUsername());
+
+        // Create authentication token
+        var authenticationToken = new UsernamePasswordAuthenticationToken(
+                loginRequest.getUsername(),
+                loginRequest.getPassword()
+        );
+
+        // Authenticate the user
+        Authentication authentication = authenticationManager.authenticate(authenticationToken);
+
+        // Generate JWT token
+        String token = tokenService.generateToken(authentication);
+        return ResponseEntity.ok(Map.of("AuthToken", token));
     }
 }

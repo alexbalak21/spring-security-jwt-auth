@@ -2,14 +2,15 @@
 
 ### Login and get JWT token
 POST http://localhost:8080/login
-Authorization: Basic YWxleDpwYXNzd29yZA==
 Content-Type: application/json
 
-{}
+{
+  "username": "alex",
+  "password": "password"
+}
 
 > {%
-    const responseBody = response.body;
-    const token = JSON.parse(responseBody).token
+    const token = JSON.parse(response.body).AuthToken;
     client.global.set("authToken", token);
 %}
 
