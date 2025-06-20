@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>app</groupId>
-	<artifactId>sping-security-jwt-auth</artifactId>
+	<artifactId>spring-security-jwt-auth</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>sping-security-jwt-auth</name>
+	<name>spring-security-jwt-auth</name>
 	<description>Spring Security Jwt Auth with OAuth2 Resource Server</description>
 	<url/>
 	<licenses>
