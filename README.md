@@ -1,15 +1,16 @@
 # Spring Security JWT Authentication
 
-This project demonstrates how to implement authentication and authorization using **Spring Security**, **JWT (JSON Web Tokens)**, and the **OAuth2 Resource Server** in a Spring Boot application.
+This project demonstrates how to implement authentication and authorization using **Spring Security**, **JWT (JSON Web Tokens)**, and the **OAuth2 Resource Server** in a Spring Boot application with database-backed user authentication.
 
 ## 🚀 Features
 
-- JWT-based authentication
-- OAuth2 resource server support
-- Secure REST API endpoints
+- JWT-based authentication with OAuth2 Resource Server
+- Secure REST API endpoints with role-based access control
 - Stateless session management
+- Database-backed user authentication (H2 in-memory database)
+- Password hashing with BCrypt
+- Custom UserDetailsService implementation
 - RSA key pair for JWT signing and validation
-- In-memory user details service (for demonstration purposes)
 
 ## 🛠️ Technologies Used
 
@@ -46,26 +47,44 @@ This project demonstrates how to implement authentication and authorization usin
 
 The application will start on `http://localhost:8080`
 
-## 🔑 Default User Credentials
+## 🔑 User Registration & Authentication
 
-For demonstration purposes, the application comes with a default user:
+1. **Register a new user**:
+   ```http
+   POST /api/auth/register
+   Content-Type: application/json
+   
+   {
+       "username": "newuser",
+       "email": "user@example.com",
+       "password": "securePassword123"
+   }
+   ```
 
-- **Username:** alex
-- **Password:** password
+2. **Login to get JWT token**:
+   ```http
+   POST /api/auth/login
+   Content-Type: application/json
+   
+   {
+       "username": "newuser",
+       "password": "securePassword123"
+   }
+   ```
 
 ## 🔐 Authentication
 
 ### Obtaining a JWT Token
 
-To authenticate and obtain a JWT token, make a POST request to the `/login` endpoint with a JSON body containing username and password:
+To authenticate and obtain a JWT token, make a POST request to the `/api/auth/login` endpoint with a JSON body containing username and password:
 
 ```http
-POST /login
+POST /api/auth/login
 Content-Type: application/json
 
 {
-    "username": "alex",
-    "password": "password"
+    "username": "your_username",
+    "password": "your_password"
 }
 ```
 
@@ -82,18 +101,31 @@ On successful authentication, you'll receive a JSON response containing the JWT 
 Once you have the token, include it in the `Authorization` header for subsequent requests:
 
 ```http
-GET /
+GET /api/secure-endpoint
 Authorization: Bearer your.jwt.token.here
 ```
 
 ## 🔧 Configuration
 
-The application uses RSA key pair for JWT signing and validation. The keys are configured in `application.yml`:
+The application uses RSA key pair for JWT signing and validation. The keys are configured in `application.properties`:
 
-```yaml
-rsa:
-  private-key: ${JWT_PRIVATE_KEY}
-  public-key: ${JWT_PUBLIC_KEY}
+```properties
+# JWT Configuration
+jwt.secret=your-secret-key
+jwt.expiration=86400000  # 24 hours in milliseconds
+
+# Database (H2 in-memory for development)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# JPA/Hibernate
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
 ```
 
 For development, you can generate a new key pair using OpenSSL:
@@ -111,17 +143,20 @@ openssl rsa -pubout -in private_key.pem -out public_key.pem
 The security configuration is defined in `SecurityConfig.java` and includes:
 
 - Stateless session management
-- JWT authentication
+- JWT authentication with OAuth2 Resource Server
 - Role-based access control
 - CSRF protection disabled (for API usage)
 - CORS configuration
+- Custom UserDetailsService for database authentication
+- Password encoding with BCrypt
 
 ## 📝 API Endpoints
 
 | Method | Endpoint | Description | Authentication Required |
 |--------|----------|-------------|-------------------------|
-| POST   | /token   | Get JWT token | Basic Auth |
-| GET    | /        | Home endpoint | JWT Bearer Token |
+| POST   | /api/auth/register | Register new user | No |
+| POST   | /api/auth/login    | Get JWT token | No (but requires valid credentials) |
+| GET    | /api/secure/**     | Protected endpoints | JWT Bearer Token |
 
 ## 🧪 Testing
 
@@ -132,8 +167,10 @@ You can test the API using the provided `requests.http` file with HTTP Client su
 - Spring Boot Starter Security
 - Spring Boot Starter Web
 - Spring Security OAuth2 Resource Server
-- Nimbus JOSE + JWT
+- Spring Data JPA
+- H2 Database (for development)
 - Lombok (for reducing boilerplate code)
+- Nimbus JOSE + JWT
 - Spring Boot DevTools (for development)
 
 ## 🔒 Security Considerations

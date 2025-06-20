@@ -1,8 +1,319 @@
-# Spring Security JWT Authentication - Comprehensive Class Documentation
+# Spring Security JWT Authentication - Detailed Architecture
 
-This document provides an in-depth reference for all classes in the Spring Security JWT Authentication project, detailing their purpose, functionality, and implementation specifics.
+This document provides a comprehensive overview of the Spring Security JWT Authentication application, detailing its architecture, components, and the complete flow of requests through the system.
 
-## Core Application Class
+## Table of Contents
+1. [Application Overview](#application-overview)
+2. [Architecture](#architecture)
+3. [Request Flows](#request-flows)
+   - [User Registration](#user-registration-flow)
+   - [User Login](#user-login-flow)
+   - [Accessing Protected Resources](#accessing-protected-resources-flow)
+4. [Security Configuration](#security-configuration)
+5. [Database Schema](#database-schema)
+6. [Error Handling](#error-handling)
+7. [Performance Considerations](#performance-considerations)
+
+## Application Overview
+
+This is a secure RESTful API built with Spring Boot that implements JWT-based authentication using Spring Security and OAuth2 Resource Server. The application provides user registration, authentication, and protected resource access functionality.
+
+## Architecture
+
+The application follows a layered architecture:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Client Application                   │
+└───────────────┬───────────────────────┬───────────────┘
+                │                       │
+                ▼                       ▼
+┌─────────────────────────┐   ┌───────────────────────┐
+│   Public Endpoints:     │   │  Protected Endpoints: │
+│   - /api/auth/register  │   │  - /api/secure/**     │
+│   - /api/auth/login     │   └───────────┬───────────┘
+└───────────┬─────────────┘               │
+            │                               │
+            ▼                               ▼
+┌─────────────────────────────────────────────────────────┐
+│                 Spring Security Filter Chain            │
+├─────────────────────────┬─────────────────────────────┤
+│  Authentication Filter  │  OAuth2 Resource Server    │
+└───────────┬─────────────┴─────────────┬─────────────┘
+            │                             │
+            ▼                             ▼
+┌─────────────────────────┐   ┌───────────────────────┐
+│   Auth Controller       │   │  Resource Controllers │
+└───────────┬─────────────┘   └───────────┬───────────┘
+            │                               │
+            ▼                               ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Service Layer                        │
+├─────────────────────────┬─────────────────────────────┤
+│  User Service           │  JWT Service               │
+└───────────┬─────────────┴─────────────┬─────────────┘
+            │                             │
+            ▼                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Repository Layer                     │
+├─────────────────────────┬─────────────────────────────┤
+│  User Repository        │  Role Repository            │
+└───────────┬─────────────┴─────────────┬─────────────┘
+            │                             │
+            ▼                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                     Database                           │
+│  ┌─────────────────┐         ┌─────────────────┐    │
+│  │     users       │         │      roles      │    │
+│  ├─────────────────┤         ├─────────────────┤    │
+│  │ id              │         │ id              │    │
+│  │ username        │         │ name            │    │
+│  │ email           │◄────────┤ description     │    │
+│  │ password        │         └─────────────────┘    │
+│  │ enabled         │                                 │
+│  └─────────────────┘                                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Request Flows
+
+### User Registration Flow
+
+1. **Client Request**:
+   ```http
+   POST /api/auth/register
+   Content-Type: application/json
+   
+   {
+       "username": "newuser",
+       "email": "user@example.com",
+       "password": "securePassword123"
+   }
+   ```
+
+2. **Server Processing**:
+   - Request passes through Spring Security filter chain
+   - `SecurityConfig` allows unauthenticated access to `/api/auth/**`
+   - `AuthController.register()` receives the request
+   - `UserService` is called to register the new user
+   - Password is encoded using BCrypt
+   - User is saved to the database with default role (USER)
+   - Verification email is sent (if configured)
+
+3. **Response**:
+   ```json
+   {
+       "id": 1,
+       "username": "newuser",
+       "email": "user@example.com",
+       "enabled": true,
+       "roles": ["ROLE_USER"]
+   }
+   ```
+
+### User Login Flow
+
+1. **Client Request**:
+   ```http
+   POST /api/auth/login
+   Content-Type: application/json
+   
+   {
+       "username": "newuser",
+       "password": "securePassword123"
+   }
+   ```
+
+2. **Server Processing**:
+   - Request passes through Spring Security filter chain
+   - `UsernamePasswordAuthenticationFilter` processes the login request
+   - `AuthenticationManager` authenticates the user using `UserDetailsService`
+   - `UserDetailsServiceImpl` loads user details from the database
+   - BCrypt checks the password
+   - On successful authentication, `JwtService` generates a JWT token
+   - Token is signed with the private RSA key
+
+3. **Response**:
+   ```json
+   {
+       "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+       "type": "Bearer",
+       "expiresIn": 86400
+   }
+   ```
+
+### Accessing Protected Resources Flow
+
+1. **Client Request**:
+   ```http
+   GET /api/secure/me
+   Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
+
+2. **Server Processing**:
+   - Request passes through Spring Security filter chain
+   - `BearerTokenAuthenticationFilter` extracts the JWT token
+   - `JwtDecoder` validates the token signature using the public RSA key
+   - Token claims are verified (expiration, issuer, etc.)
+   - `JwtAuthenticationConverter` creates an `Authentication` object
+   - Security context is populated with the authentication
+   - Request is routed to the appropriate controller method
+   - Method-level security (`@PreAuthorize`) is checked
+   - Business logic is executed
+
+3. **Response**:
+   ```json
+   {
+       "id": 1,
+       "username": "newuser",
+       "email": "user@example.com"
+   }
+   ```
+
+## Security Configuration
+
+The security configuration is defined in `SecurityConfig` and includes:
+
+1. **Web Security**:
+   - CSRF protection disabled (for API usage)
+   - Session management is stateless
+   - CORS configuration
+   - OAuth2 Resource Server with JWT support
+
+2. **Authentication**:
+   - `UserDetailsService` for loading user details from the database
+   - BCrypt password encoder
+   - JWT-based authentication for protected resources
+
+3. **Authorization**:
+   - Method-level security with `@PreAuthorize`
+   - Role-based access control
+   - Custom permission evaluators (if needed)
+
+## Database Schema
+
+### Users Table
+```sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(100) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### Roles Table
+```sql
+CREATE TABLE roles (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(255)
+);
+```
+
+### User Roles Join Table
+```sql
+CREATE TABLE user_roles (
+    user_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+);
+```
+
+## Error Handling
+
+The application provides consistent error responses for various scenarios:
+
+1. **Authentication Failure** (401 Unauthorized):
+   ```json
+   {
+       "timestamp": "2023-04-01T12:00:00Z",
+       "status": 401,
+       "error": "Unauthorized",
+       "message": "Bad credentials",
+       "path": "/api/auth/login"
+   }
+   ```
+
+2. **Access Denied** (403 Forbidden):
+   ```json
+   {
+       "timestamp": "2023-04-01T12:00:00Z",
+       "status": 403,
+       "error": "Forbidden",
+       "message": "Access is denied",
+       "path": "/api/secure/admin"
+   }
+   ```
+
+3. **Validation Errors** (400 Bad Request):
+   ```json
+   {
+       "timestamp": "2023-04-01T12:00:00Z",
+       "status": 400,
+       "error": "Bad Request",
+       "message": "Validation failed",
+       "errors": [
+           "Username is required",
+           "Password must be at least 8 characters"
+       ],
+       "path": "/api/auth/register"
+   }
+   ```
+
+## Performance Considerations
+
+1. **JWT Token Size**:
+   - Keep claims minimal to reduce token size
+   - Consider using opaque tokens for very large user sessions
+
+2. **Database Queries**:
+   - `@EntityGraph` is used to avoid N+1 query problems
+   - Caching is implemented for frequently accessed data
+
+3. **Token Validation**:
+   - Asymmetric encryption (RSA) is used for JWT signing/verification
+   - Token validation is stateless and fast
+
+4. **Password Hashing**:
+   - BCrypt with work factor of 10 (configurable)
+   - Adaptive one-way function that remains secure against brute-force attacks
+
+5. **Caching**:
+   - User details are cached after first load
+   - Token validation results are cached for performance
+
+## Security Considerations
+
+1. **JWT Security**:
+   - Tokens are signed with RSA-2048 (asymmetric encryption)
+   - Short token expiration (configurable, default 24 hours)
+   - No sensitive data stored in tokens
+
+2. **Password Security**:
+   - BCrypt password hashing
+   - Password strength validation
+   - Account lockout after failed attempts (configurable)
+
+3. **HTTPS**:
+   - Always use HTTPS in production
+   - HSTS header is enabled
+
+4. **CORS**:
+   - Configured to allow requests from trusted origins only
+   - Pre-flight requests are cached
+
+5. **Input Validation**:
+   - All user input is validated
+   - SQL injection prevention with JPA/Hibernate
+   - XSS protection with content security policy
+
+## Core Application Class (Legacy Documentation)
 
 ### `AuthApplication.java`
 - **Location**: `app`

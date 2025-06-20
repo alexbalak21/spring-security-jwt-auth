@@ -14,23 +14,32 @@
 
 ```
 src/main/java/app/
-├── AuthApplication.java          # Main application class
 ├── config/
 │   ├── SecurityConfig.java       # Security configuration
 │   ├── RsaKeyProperties.java     # RSA key properties
-│   └── CorsConfiguration.java    # CORS configuration
+│   └── JwtConfig.java           # JWT configuration
 ├── controller/
 │   ├── AuthController.java      # Authentication endpoints
 │   └── HomeController.java       # Protected resource
-└── service/
-    └── TokenService.java         # JWT token handling
+├── service/
+│   ├── UserDetailsServiceImpl.java # Custom UserDetailsService
+│   └── JwtService.java          # JWT token handling
+├── model/
+│   ├── User.java                # User entity
+│   └── Role.java                 # User roles
+└── repository/
+    └── UserRepository.java      # User repository
 ```
 
 ## Authentication Flow
 
-1. **Client Authentication**:
-   - Client sends JSON credentials to `/login` endpoint
-   - Server validates credentials using `AuthenticationManager`
+1. **User Registration**:
+   - Client sends registration request to `/api/auth/register`
+   - Server validates input and creates new user with hashed password
+   
+2. **Client Authentication**:
+   - Client sends JSON credentials to `/api/auth/login` endpoint
+   - Server validates credentials against database using `UserDetailsService`
    - On successful authentication, a JWT token is generated and returned in the response body
 
 2. **Accessing Protected Resources**:
@@ -42,12 +51,13 @@ src/main/java/app/
 
 ### SecurityConfig.java
 - Enables method-level security with `@EnableMethodSecurity`
-- Configures HTTP security to require authentication for all endpoints except `/login`
+- Configures HTTP security to require authentication for all endpoints except `/api/auth/**`
 - Sets up JWT-based authentication using OAuth2 Resource Server
 - Configures stateless session management
 - Disables CSRF protection (as we're using JWT)
-- Configures `AuthenticationManager` for JSON authentication
+- Configures `AuthenticationManager` to use custom `UserDetailsService`
 - Sets up password encoding with BCrypt
+- Configures OAuth2 Resource Server for JWT validation
 
 ### CORS Configuration
 - Allows cross-origin requests from any origin (configured in `CorsConfiguration.java`)
@@ -70,8 +80,8 @@ src/main/java/app/
 
 ### Authentication
 
-#### Get JWT Token
-- **Endpoint**: `POST /login`
+#### Register New User
+- **Endpoint**: `POST /api/auth/register`
 - **Request Headers**:
   ```
   Content-Type: application/json
@@ -79,8 +89,23 @@ src/main/java/app/
 - **Request Body**:
   ```json
   {
-    "username": "alex",
-    "password": "password"
+    "username": "newuser",
+    "email": "user@example.com",
+    "password": "securePassword123"
+  }
+  ```
+
+#### Get JWT Token
+- **Endpoint**: `POST /api/auth/login`
+- **Request Headers**:
+  ```
+  Content-Type: application/json
+  ```
+- **Request Body**:
+  ```json
+  {
+    "username": "your_username",
+    "password": "your_password"
   }
   ```
 - **Response**:
@@ -109,34 +134,48 @@ src/main/java/app/
 ## Configuration
 
 ### Application Properties
-Configuration is managed through `application.yml`:
+Configuration is managed through `application.properties`:
 
-```yaml
-server:
-  port: 8080
+```properties
+# Server Configuration
+server.port=8080
 
-rsa:
-  private-key: ${JWT_PRIVATE_KEY}  # Private key for JWT signing
-  public-key: ${JWT_PUBLIC_KEY}    # Public key for JWT verification
+# JWT Configuration
+jwt.secret=your-secret-key
+jwt.expiration=86400000  # 24 hours in milliseconds
 
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8080  # JWT issuer URI
+# Database (H2 in-memory for development)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# JPA/Hibernate
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+
+# OAuth2 Resource Server
+spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8080
 ```
 
 ### Environment Variables
-- `JWT_PRIVATE_KEY`: RSA private key for JWT signing
-- `JWT_PUBLIC_KEY`: RSA public key for JWT verification
+- `JWT_SECRET`: Secret key for JWT signing and verification
+- `JWT_EXPIRATION`: JWT expiration time in milliseconds (default: 86400000 - 24 hours)
 
 ## Security Considerations
 
-### Key Management
-- **Development**: Keys can be stored in environment variables
-- **Production**: Use a secure key management system (e.g., AWS KMS, HashiCorp Vault)
-- **Key Rotation**: Implement a key rotation strategy
+### Security Best Practices
+- **Development**: Use strong secrets and enable H2 console only in development
+- **Production**: 
+  - Use environment variables for sensitive data
+  - Enable HTTPS
+  - Use a production-grade database (PostgreSQL, MySQL, etc.)
+  - Configure proper CORS settings
+  - Implement rate limiting
+  - Use proper logging and monitoring
 
 ### Token Security
 - Use short-lived access tokens (15-60 minutes)
@@ -182,19 +221,21 @@ logging:
 
 ## Development
 
-### Generating RSA Key Pair
+### Testing the API
 
-```bash
-# Generate private key (PKCS#8 format)
-openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+You can use the provided `requests.http` file to test the API endpoints:
 
-# Generate public key
-openssl rsa -pubout -in private_key.pem -out public_key.pem
+1. Register a new user
+2. Login with the registered credentials
+3. Access protected endpoints with the JWT token
 
-# Convert to single line for environment variables
-awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' private_key.pem
-awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' public_key.pem
-```
+### Database Access
+
+During development, you can access the H2 console at:
+- URL: http://localhost:8080/h2-console
+- JDBC URL: jdbc:h2:mem:testdb
+- Username: sa
+- Password: (leave empty)
 
 ### Testing
 
